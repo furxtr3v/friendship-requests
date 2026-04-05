@@ -1,1 +1,127 @@
+<?php
+// --- DATABASE & LOGIC SECTION ---
+$db = new SQLite3('community.db');
 
+// Initialize Tables
+$db->exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, bio TEXT, social TEXT)");
+$db->exec("CREATE TABLE IF NOT EXISTS apps (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, target_id INTEGER, msg TEXT, date DATETIME DEFAULT CURRENT_TIMESTAMP)");
+
+// Handle Form Submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['join'])) {
+        $stmt = $db->prepare("INSERT INTO users (name, bio, social) VALUES (:n, :b, :s)");
+        $stmt->bindValue(':n', htmlspecialchars($_POST['name']), SQLITE3_TEXT);
+        $stmt->bindValue(':b', htmlspecialchars($_POST['bio']), SQLITE3_TEXT);
+        $stmt->bindValue(':s', htmlspecialchars($_POST['social']), SQLITE3_TEXT);
+        $stmt->execute();
+    } elseif (isset($_POST['apply'])) {
+        $stmt = $db->prepare("INSERT INTO apps (sender, target_id, msg) VALUES (:s, :t, :m)");
+        $stmt->bindValue(':s', htmlspecialchars($_POST['sender']), SQLITE3_TEXT);
+        $stmt->bindValue(':t', $_POST['target_id'], SQLITE3_INTEGER);
+        $stmt->bindValue(':m', htmlspecialchars($_POST['message']), SQLITE3_TEXT);
+        $stmt->execute();
+        $success = "Friend request sent successfully!";
+    }
+    header("Location: " . $_SERVER['PHP_SELF'] . (isset($_GET['view']) ? "?view=".$_GET['view'] : ""));
+    exit;
+}
+
+$view = $_GET['view'] ?? 'home';
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friendship App</title>
+    <style>
+        :root { --p: #6366f1; --bg: #f8fafc; --txt: #1e293b; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--txt); line-height: 1.6; margin: 0; padding: 20px; }
+        .container { max-width: 700px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { background: var(--p); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        nav { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+        nav a { text-decoration: none; color: var(--p); font-weight: bold; padding: 5px 10px; border: 1px solid var(--p); border-radius: 5px; }
+        nav a.active { background: var(--p); color: white; }
+        .badge { font-size: 0.75rem; background: #e2e8f0; padding: 2px 8px; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <nav>
+        <a href="?view=home" class="<?= $view == 'home' ? 'active' : '' ?>">Profiles</a>
+        <a href="?view=join" class="<?= $view == 'join' ? 'active' : '' ?>">Create Profile</a>
+        <a href="?view=admin" class="<?= $view == 'admin' ? 'active' : '' ?>" style="border-color: #ef4444; color: #ef4444;">Owner View</a>
+    </nav>
+
+    <?php if ($view === 'join'): ?>
+        <div class="card">
+            <h2>Create Your Profile</h2>
+            <form method="POST">
+                <input type="text" name="name" placeholder="Your Display Name" required>
+                <input type="text" name="social" placeholder="Discord / Instagram / Twitter">
+                <textarea name="bio" placeholder="Tell us about yourself..." rows="4"></textarea>
+                <button type="submit" name="join">Publish Profile</button>
+            </form>
+        </div>
+
+    <?php elseif ($view === 'admin'): ?>
+        <div class="card">
+            <h2>Admin: All Friend Submissions</h2>
+            <p>Accessing all incoming requests recorded in the database.</p>
+            <table>
+                <tr><th>From</th><th>To (ID)</th><th>Message</th><th>Date</th></tr>
+                <?php
+                $res = $db->query("SELECT r.*, u.name as target_name FROM apps r LEFT JOIN users u ON r.target_id = u.id ORDER BY date DESC");
+                while ($row = $res->fetchArray()): ?>
+                    <tr>
+                        <td><b><?= $row['sender'] ?></b></td>
+                        <td><?= $row['target_name'] ?? 'Deleted User' ?></td>
+                        <td><?= $row['msg'] ?></td>
+                        <td><small><?= date('M j, H:i', strtotime($row['date'])) ?></small></td>
+                    </tr>
+                <?php endwhile; ?>
+            </table>
+        </div>
+
+    <?php else: ?>
+        <h2>Community Members</h2>
+        <?php
+        $res = $db->query("SELECT * FROM users ORDER BY id DESC");
+        while ($user = $res->fetchArray()): ?>
+            <div class="card">
+                <div style="display:flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin:0;"><?= $user['name'] ?></h3>
+                    <span class="badge">@<?= $user['social'] ?></span>
+                </div>
+                <p><?= $user['bio'] ?></p>
+                
+                <details>
+                    <summary style="cursor:pointer; color: var(--p); font-size: 0.9rem;">Send Friend Request</summary>
+                    <form method="POST" style="margin-top:10px; background: #f1f5f9; padding: 15px; border-radius: 8px;">
+                        <input type="hidden" name="target_id" value="<?= $user['id'] ?>">
+                        <input type="text" name="sender" placeholder="Your Name" required>
+                        <textarea name="message" placeholder="Why do you want to be friends?" required></textarea>
+                        <button type="submit" name="apply">Send Request</button>
+                    </form>
+                </details>
+            </div>
+        <?php endwhile; ?>
+    <?php endif; ?>
+</div>
+
+<script>
+    // Simple JS to handle UI feedback if needed
+    if (window.history.replaceState) {
+        window.history.replaceState(null, null, window.location.href);
+    }
+</script>
+
+</body>
+</html>
