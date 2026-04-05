@@ -1,18 +1,32 @@
 <?php
-// --- DATABASE & LOGIC SECTION ---
-$db = new SQLite3('community.db');
+// --- CONFIG & DATABASE ---
+$admin_password = "admin123"; // CHANGE THIS
+$db = new SQLite3('friendship_v2.db');
 
-// Initialize Tables
-$db->exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, bio TEXT, social TEXT)");
-$db->exec("CREATE TABLE IF NOT EXISTS apps (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, target_id INTEGER, msg TEXT, date DATETIME DEFAULT CURRENT_TIMESTAMP)");
+// Table Initialization
+$db->exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, bio TEXT, social TEXT, tag TEXT, color TEXT)");
+$db->exec("CREATE TABLE IF NOT EXISTS apps (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, target_id INTEGER, msg TEXT, status TEXT DEFAULT 'Pending', date DATETIME DEFAULT CURRENT_TIMESTAMP)");
 
-// Handle Form Submissions
+// --- LOGIC ---
+session_start();
+$view = $_GET['view'] ?? 'home';
+
+// Handle Admin Login
+if (isset($_POST['login'])) {
+    if ($_POST['pass'] === $admin_password) $_SESSION['is_admin'] = true;
+    header("Location: ?view=admin"); exit;
+}
+
+// Handle Submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['join'])) {
-        $stmt = $db->prepare("INSERT INTO users (name, bio, social) VALUES (:n, :b, :s)");
+        $colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
+        $stmt = $db->prepare("INSERT INTO users (name, bio, social, tag, color) VALUES (:n, :b, :s, :t, :c)");
         $stmt->bindValue(':n', htmlspecialchars($_POST['name']), SQLITE3_TEXT);
         $stmt->bindValue(':b', htmlspecialchars($_POST['bio']), SQLITE3_TEXT);
         $stmt->bindValue(':s', htmlspecialchars($_POST['social']), SQLITE3_TEXT);
+        $stmt->bindValue(':t', htmlspecialchars($_POST['tag']), SQLITE3_TEXT);
+        $stmt->bindValue(':c', $colors[array_rand($colors)], SQLITE3_TEXT);
         $stmt->execute();
     } elseif (isset($_POST['apply'])) {
         $stmt = $db->prepare("INSERT INTO apps (sender, target_id, msg) VALUES (:s, :t, :m)");
@@ -20,13 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindValue(':t', $_POST['target_id'], SQLITE3_INTEGER);
         $stmt->bindValue(':m', htmlspecialchars($_POST['message']), SQLITE3_TEXT);
         $stmt->execute();
-        $success = "Friend request sent successfully!";
     }
-    header("Location: " . $_SERVER['PHP_SELF'] . (isset($_GET['view']) ? "?view=".$_GET['view'] : ""));
-    exit;
+    header("Location: " . $_SERVER['PHP_SELF'] . (isset($_GET['view']) ? "?view=".$_GET['view'] : "")); exit;
 }
-
-$view = $_GET['view'] ?? 'home';
 ?>
 
 <!DOCTYPE html>
@@ -34,94 +44,144 @@ $view = $_GET['view'] ?? 'home';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Friendship App</title>
+    <title>Nexus | Friend Finder</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        :root { --p: #6366f1; --bg: #f8fafc; --txt: #1e293b; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--txt); line-height: 1.6; margin: 0; padding: 20px; }
-        .container { max-width: 700px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        button { background: var(--p); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
-        button:hover { opacity: 0.9; }
-        nav { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
-        nav a { text-decoration: none; color: var(--p); font-weight: bold; padding: 5px 10px; border: 1px solid var(--p); border-radius: 5px; }
-        nav a.active { background: var(--p); color: white; }
-        .badge { font-size: 0.75rem; background: #e2e8f0; padding: 2px 8px; border-radius: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        :root { --primary: #6366f1; --glass: rgba(255, 255, 255, 0.8); --border: rgba(255, 255, 255, 0.3); }
+        body { margin: 0; background: linear-gradient(135deg, #e0e7ff 0%, #fef2f2 100%); min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; color: #1e293b; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        
+        /* UI Components */
+        .glass { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07); padding: 24px; margin-bottom: 20px; }
+        .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .nav-links { display: flex; gap: 10px; }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        
+        /* Profile Grid */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .profile-card { position: relative; overflow: hidden; transition: transform 0.3s; }
+        .profile-card:hover { transform: translateY(-5px); }
+        .profile-color { height: 6px; width: 100%; position: absolute; top: 0; left: 0; }
+        .tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+        
+        /* Forms */
+        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; }
+        .search-bar { width: 100%; font-size: 1.1rem; border: none; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        /* Admin Table */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; color: #64748b; font-size: 0.8rem; text-transform: uppercase; padding: 10px; }
+        td { padding: 15px 10px; border-top: 1px solid #f1f5f9; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <nav>
-        <a href="?view=home" class="<?= $view == 'home' ? 'active' : '' ?>">Profiles</a>
-        <a href="?view=join" class="<?= $view == 'join' ? 'active' : '' ?>">Create Profile</a>
-        <a href="?view=admin" class="<?= $view == 'admin' ? 'active' : '' ?>" style="border-color: #ef4444; color: #ef4444;">Owner View</a>
-    </nav>
+    <div class="nav">
+        <h1 style="margin:0; letter-spacing: -1px;">Nexus<span style="color:var(--primary)">.</span></h1>
+        <div class="nav-links">
+            <a href="?view=home" class="btn btn-outline">Profiles</a>
+            <a href="?view=join" class="btn btn-primary"><i data-lucide="plus"></i> Join</a>
+            <a href="?view=admin" class="btn" style="color:#ef4444"><i data-lucide="shield"></i></a>
+        </div>
+    </div>
 
     <?php if ($view === 'join'): ?>
-        <div class="card">
-            <h2>Create Your Profile</h2>
+        <div class="glass" style="max-width: 500px; margin: auto;">
+            <h2>Create Profile</h2>
             <form method="POST">
-                <input type="text" name="name" placeholder="Your Display Name" required>
-                <input type="text" name="social" placeholder="Discord / Instagram / Twitter">
-                <textarea name="bio" placeholder="Tell us about yourself..." rows="4"></textarea>
-                <button type="submit" name="join">Publish Profile</button>
+                <input type="text" name="name" placeholder="Full Name" required>
+                <input type="text" name="tag" placeholder="Hobby (e.g. Developer, Gamer)">
+                <input type="text" name="social" placeholder="Handle (e.g. @username)">
+                <textarea name="bio" placeholder="Bio..." rows="4"></textarea>
+                <button type="submit" name="join" class="btn btn-primary" style="width:100%">Publish</button>
             </form>
         </div>
 
     <?php elseif ($view === 'admin'): ?>
-        <div class="card">
-            <h2>Admin: All Friend Submissions</h2>
-            <p>Accessing all incoming requests recorded in the database.</p>
-            <table>
-                <tr><th>From</th><th>To (ID)</th><th>Message</th><th>Date</th></tr>
-                <?php
-                $res = $db->query("SELECT r.*, u.name as target_name FROM apps r LEFT JOIN users u ON r.target_id = u.id ORDER BY date DESC");
-                while ($row = $res->fetchArray()): ?>
-                    <tr>
-                        <td><b><?= $row['sender'] ?></b></td>
-                        <td><?= $row['target_name'] ?? 'Deleted User' ?></td>
-                        <td><?= $row['msg'] ?></td>
-                        <td><small><?= date('M j, H:i', strtotime($row['date'])) ?></small></td>
-                    </tr>
-                <?php endwhile; ?>
-            </table>
-        </div>
+        <?php if (!isset($_SESSION['is_admin'])): ?>
+            <div class="glass" style="max-width: 400px; margin: auto; text-align: center;">
+                <i data-lucide="lock" size="40"></i>
+                <h2>Owner Login</h2>
+                <form method="POST">
+                    <input type="password" name="pass" placeholder="Password" required>
+                    <button type="submit" name="login" class="btn btn-primary">Unlock Dashboard</button>
+                </form>
+            </div>
+        <?php else: ?>
+            <div class="glass">
+                <div style="display:flex; justify-content: space-between;">
+                    <h2>Friend Applications</h2>
+                    <a href="?logout=1" style="color:#94a3b8">Logout</a>
+                </div>
+                <table>
+                    <thead><tr><th>From</th><th>Target User</th><th>Message</th><th>Time</th></tr></thead>
+                    <tbody>
+                        <?php
+                        $res = $db->query("SELECT r.*, u.name as target_name FROM apps r LEFT JOIN users u ON r.target_id = u.id ORDER BY date DESC");
+                        while ($row = $res->fetchArray()): ?>
+                            <tr>
+                                <td><strong><?= $row['sender'] ?></strong></td>
+                                <td><span class="tag"><?= $row['target_name'] ?></span></td>
+                                <td><?= $row['msg'] ?></td>
+                                <td><small><?= date('M j, g:i a', strtotime($row['date'])) ?></small></td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
 
     <?php else: ?>
-        <h2>Community Members</h2>
-        <?php
-        $res = $db->query("SELECT * FROM users ORDER BY id DESC");
-        while ($user = $res->fetchArray()): ?>
-            <div class="card">
-                <div style="display:flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin:0;"><?= $user['name'] ?></h3>
-                    <span class="badge">@<?= $user['social'] ?></span>
+        <input type="text" id="profileSearch" class="glass search-bar" placeholder="Search by name or hobby...">
+        
+        <div class="grid" id="profileGrid">
+            <?php
+            $res = $db->query("SELECT * FROM users ORDER BY id DESC");
+            while ($user = $res->fetchArray()): ?>
+                <div class="glass profile-card" data-name="<?= strtolower($user['name'] . $user['tag']) ?>">
+                    <div class="profile-color" style="background:<?= $user['color'] ?>"></div>
+                    <span class="tag"><?= $user['tag'] ?></span>
+                    <h3 style="margin: 10px 0 5px 0;"><?= $user['name'] ?></h3>
+                    <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 15px;"><?= $user['bio'] ?></p>
+                    
+                    <details style="border-top: 1px solid #f1f5f9; padding-top: 10px;">
+                        <summary style="cursor:pointer; font-size: 0.85rem; font-weight:600; color:var(--primary)">Apply for Friendship</summary>
+                        <form method="POST" style="margin-top:10px;">
+                            <input type="hidden" name="target_id" value="<?= $user['id'] ?>">
+                            <input type="text" name="sender" placeholder="Your Name" required style="padding:8px; font-size:0.8rem;">
+                            <textarea name="message" placeholder="Short intro..." rows="2" style="padding:8px; font-size:0.8rem;"></textarea>
+                            <button type="submit" name="apply" class="btn btn-primary" style="width:100%; padding:8px; font-size:0.8rem;">Send</button>
+                        </form>
+                    </details>
                 </div>
-                <p><?= $user['bio'] ?></p>
-                
-                <details>
-                    <summary style="cursor:pointer; color: var(--p); font-size: 0.9rem;">Send Friend Request</summary>
-                    <form method="POST" style="margin-top:10px; background: #f1f5f9; padding: 15px; border-radius: 8px;">
-                        <input type="hidden" name="target_id" value="<?= $user['id'] ?>">
-                        <input type="text" name="sender" placeholder="Your Name" required>
-                        <textarea name="message" placeholder="Why do you want to be friends?" required></textarea>
-                        <button type="submit" name="apply">Send Request</button>
-                    </form>
-                </details>
-            </div>
-        <?php endwhile; ?>
+            <?php endwhile; ?>
+        </div>
     <?php endif; ?>
 </div>
 
 <script>
-    // Simple JS to handle UI feedback if needed
-    if (window.history.replaceState) {
-        window.history.replaceState(null, null, window.location.href);
+    lucide.createIcons();
+
+    // Live Search Logic
+    const search = document.getElementById('profileSearch');
+    if(search) {
+        search.addEventListener('keyup', (e) => {
+            const term = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.profile-card');
+            cards.forEach(card => {
+                const content = card.getAttribute('data-name');
+                card.style.display = content.includes(term) ? 'block' : 'none';
+            });
+        });
+    }
+
+    // Prevent form resubmit on refresh
+    if ( window.history.replaceState ) {
+        window.history.replaceState( null, null, window.location.href );
     }
 </script>
-
 </body>
 </html>
