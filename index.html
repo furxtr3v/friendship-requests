@@ -1,187 +1,168 @@
-<?php
-// --- CONFIG & DATABASE ---
-$admin_password = "admin123"; // CHANGE THIS
-$db = new SQLite3('friendship_v2.db');
-
-// Table Initialization
-$db->exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, bio TEXT, social TEXT, tag TEXT, color TEXT)");
-$db->exec("CREATE TABLE IF NOT EXISTS apps (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, target_id INTEGER, msg TEXT, status TEXT DEFAULT 'Pending', date DATETIME DEFAULT CURRENT_TIMESTAMP)");
-
-// --- LOGIC ---
-session_start();
-$view = $_GET['view'] ?? 'home';
-
-// Handle Admin Login
-if (isset($_POST['login'])) {
-    if ($_POST['pass'] === $admin_password) $_SESSION['is_admin'] = true;
-    header("Location: ?view=admin"); exit;
-}
-
-// Handle Submissions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['join'])) {
-        $colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
-        $stmt = $db->prepare("INSERT INTO users (name, bio, social, tag, color) VALUES (:n, :b, :s, :t, :c)");
-        $stmt->bindValue(':n', htmlspecialchars($_POST['name']), SQLITE3_TEXT);
-        $stmt->bindValue(':b', htmlspecialchars($_POST['bio']), SQLITE3_TEXT);
-        $stmt->bindValue(':s', htmlspecialchars($_POST['social']), SQLITE3_TEXT);
-        $stmt->bindValue(':t', htmlspecialchars($_POST['tag']), SQLITE3_TEXT);
-        $stmt->bindValue(':c', $colors[array_rand($colors)], SQLITE3_TEXT);
-        $stmt->execute();
-    } elseif (isset($_POST['apply'])) {
-        $stmt = $db->prepare("INSERT INTO apps (sender, target_id, msg) VALUES (:s, :t, :m)");
-        $stmt->bindValue(':s', htmlspecialchars($_POST['sender']), SQLITE3_TEXT);
-        $stmt->bindValue(':t', $_POST['target_id'], SQLITE3_INTEGER);
-        $stmt->bindValue(':m', htmlspecialchars($_POST['message']), SQLITE3_TEXT);
-        $stmt->execute();
-    }
-    header("Location: " . $_SERVER['PHP_SELF'] . (isset($_GET['view']) ? "?view=".$_GET['view'] : "")); exit;
-}
-?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus | Friend Finder</title>
+    <title>Nexus | Premium Social</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        :root { --primary: #6366f1; --glass: rgba(255, 255, 255, 0.8); --border: rgba(255, 255, 255, 0.3); }
-        body { margin: 0; background: linear-gradient(135deg, #e0e7ff 0%, #fef2f2 100%); min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; color: #1e293b; padding: 20px; }
-        .container { max-width: 900px; margin: auto; }
-        
-        /* UI Components */
-        .glass { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07); padding: 24px; margin-bottom: 20px; }
-        .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .nav-links { display: flex; gap: 10px; }
-        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-        
-        /* Profile Grid */
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-        .profile-card { position: relative; overflow: hidden; transition: transform 0.3s; }
-        .profile-card:hover { transform: translateY(-5px); }
-        .profile-color { height: 6px; width: 100%; position: absolute; top: 0; left: 0; }
-        .tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
-        
-        /* Forms */
-        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; }
-        .search-bar { width: 100%; font-size: 1.1rem; border: none; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-
-        /* Admin Table */
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { text-align: left; color: #64748b; font-size: 0.8rem; text-transform: uppercase; padding: 10px; }
-        td { padding: 15px 10px; border-top: 1px solid #f1f5f9; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #0f172a; color: white; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .gradient-text { background: linear-gradient(90deg, #818cf8, #e879f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
-<body>
+<body class="min-h-screen custom-scroll">
 
-<div class="container">
-    <div class="nav">
-        <h1 style="margin:0; letter-spacing: -1px;">Nexus<span style="color:var(--primary)">.</span></h1>
-        <div class="nav-links">
-            <a href="?view=home" class="btn btn-outline">Profiles</a>
-            <a href="?view=join" class="btn btn-primary"><i data-lucide="plus"></i> Join</a>
-            <a href="?view=admin" class="btn" style="color:#ef4444"><i data-lucide="shield"></i></a>
+    <nav class="sticky top-0 z-50 glass px-6 py-4 mb-8">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-extrabold tracking-tight">NEXUS<span class="text-indigo-500">.</span></h1>
+            <div class="flex gap-6 items-center">
+                <button onclick="showView('profiles')" class="hover:text-indigo-400 transition">Explore</button>
+                <button onclick="showView('join')" class="hover:text-indigo-400 transition">Create</button>
+                <button onclick="showView('admin')" class="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition">
+                    <i data-lucide="shield" class="w-5 h-5 text-indigo-400"></i>
+                </button>
+            </div>
         </div>
-    </div>
+    </nav>
 
-    <?php if ($view === 'join'): ?>
-        <div class="glass" style="max-width: 500px; margin: auto;">
-            <h2>Create Profile</h2>
-            <form method="POST">
-                <input type="text" name="name" placeholder="Full Name" required>
-                <input type="text" name="tag" placeholder="Hobby (e.g. Developer, Gamer)">
-                <input type="text" name="social" placeholder="Handle (e.g. @username)">
-                <textarea name="bio" placeholder="Bio..." rows="4"></textarea>
-                <button type="submit" name="join" class="btn btn-primary" style="width:100%">Publish</button>
-            </form>
-        </div>
+    <main class="max-w-6xl mx-auto px-6 pb-20">
+        
+        <section id="view-profiles">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <h2 class="text-4xl font-bold">Discover <span class="gradient-text">Friends</span></h2>
+                <div class="relative w-full md:w-72">
+                    <i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-slate-400"></i>
+                    <input type="text" id="searchInput" placeholder="Search profiles..." class="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                </div>
+            </div>
+            <div id="profileGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
+        </section>
 
-    <?php elseif ($view === 'admin'): ?>
-        <?php if (!isset($_SESSION['is_admin'])): ?>
-            <div class="glass" style="max-width: 400px; margin: auto; text-align: center;">
-                <i data-lucide="lock" size="40"></i>
-                <h2>Owner Login</h2>
-                <form method="POST">
-                    <input type="password" name="pass" placeholder="Password" required>
-                    <button type="submit" name="login" class="btn btn-primary">Unlock Dashboard</button>
+        <section id="view-join" class="hidden max-w-xl mx-auto">
+            <div class="glass p-8 rounded-3xl">
+                <h2 class="text-3xl font-bold mb-2">Join the Nexus</h2>
+                <p class="text-slate-400 mb-6">Set up your profile to start receiving friend requests.</p>
+                <form id="joinForm" class="space-y-4">
+                    <input type="text" id="reg-name" placeholder="Full Name" class="w-full bg-slate-800 border-none rounded-xl p-4 focus:ring-2 focus:ring-indigo-500" required>
+                    <input type="text" id="reg-tag" placeholder="Your Hobby (e.g. UI Designer)" class="w-full bg-slate-800 border-none rounded-xl p-4 focus:ring-2 focus:ring-indigo-500">
+                    <textarea id="reg-bio" placeholder="Tell us about yourself..." class="w-full bg-slate-800 border-none rounded-xl p-4 h-32 focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-indigo-500/20">Publish Profile</button>
                 </form>
             </div>
-        <?php else: ?>
-            <div class="glass">
-                <div style="display:flex; justify-content: space-between;">
-                    <h2>Friend Applications</h2>
-                    <a href="?logout=1" style="color:#94a3b8">Logout</a>
+        </section>
+
+        <section id="view-admin" class="hidden">
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h2 class="text-4xl font-bold">Inbox</h2>
+                    <p class="text-slate-400">Manage incoming friend applications</p>
                 </div>
-                <table>
-                    <thead><tr><th>From</th><th>Target User</th><th>Message</th><th>Time</th></tr></thead>
-                    <tbody>
-                        <?php
-                        $res = $db->query("SELECT r.*, u.name as target_name FROM apps r LEFT JOIN users u ON r.target_id = u.id ORDER BY date DESC");
-                        while ($row = $res->fetchArray()): ?>
-                            <tr>
-                                <td><strong><?= $row['sender'] ?></strong></td>
-                                <td><span class="tag"><?= $row['target_name'] ?></span></td>
-                                <td><?= $row['msg'] ?></td>
-                                <td><small><?= date('M j, g:i a', strtotime($row['date'])) ?></small></td>
-                            </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
+                <button onclick="clearApps()" class="text-xs text-red-400 hover:underline">Clear History</button>
             </div>
-        <?php endif; ?>
-
-    <?php else: ?>
-        <input type="text" id="profileSearch" class="glass search-bar" placeholder="Search by name or hobby...">
-        
-        <div class="grid" id="profileGrid">
-            <?php
-            $res = $db->query("SELECT * FROM users ORDER BY id DESC");
-            while ($user = $res->fetchArray()): ?>
-                <div class="glass profile-card" data-name="<?= strtolower($user['name'] . $user['tag']) ?>">
-                    <div class="profile-color" style="background:<?= $user['color'] ?>"></div>
-                    <span class="tag"><?= $user['tag'] ?></span>
-                    <h3 style="margin: 10px 0 5px 0;"><?= $user['name'] ?></h3>
-                    <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 15px;"><?= $user['bio'] ?></p>
-                    
-                    <details style="border-top: 1px solid #f1f5f9; padding-top: 10px;">
-                        <summary style="cursor:pointer; font-size: 0.85rem; font-weight:600; color:var(--primary)">Apply for Friendship</summary>
-                        <form method="POST" style="margin-top:10px;">
-                            <input type="hidden" name="target_id" value="<?= $user['id'] ?>">
-                            <input type="text" name="sender" placeholder="Your Name" required style="padding:8px; font-size:0.8rem;">
-                            <textarea name="message" placeholder="Short intro..." rows="2" style="padding:8px; font-size:0.8rem;"></textarea>
-                            <button type="submit" name="apply" class="btn btn-primary" style="width:100%; padding:8px; font-size:0.8rem;">Send</button>
-                        </form>
-                    </details>
+            <div id="adminPanel" class="space-y-4">
                 </div>
-            <?php endwhile; ?>
-        </div>
-    <?php endif; ?>
-</div>
+        </section>
 
-<script>
-    lucide.createIcons();
+    </main>
 
-    // Live Search Logic
-    const search = document.getElementById('profileSearch');
-    if(search) {
-        search.addEventListener('keyup', (e) => {
-            const term = e.target.value.toLowerCase();
-            const cards = document.querySelectorAll('.profile-card');
-            cards.forEach(card => {
-                const content = card.getAttribute('data-name');
-                card.style.display = content.includes(term) ? 'block' : 'none';
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // 1. YOUR FIREBASE CONFIG GOES HERE
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- View Controller ---
+        window.showView = (viewName) => {
+            ['profiles', 'join', 'admin'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+            });
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            lucide.createIcons();
+        };
+
+        // --- Logic: Create Profile ---
+        document.getElementById('joinForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await addDoc(collection(db, "users"), {
+                name: document.getElementById('reg-name').value,
+                tag: document.getElementById('reg-tag').value,
+                bio: document.getElementById('reg-bio').value,
+                timestamp: serverTimestamp()
+            });
+            alert('Profile Live!');
+            showView('profiles');
+        });
+
+        // --- Logic: Real-time Profile Sync ---
+        onSnapshot(query(collection(db, "users"), orderBy("timestamp", "desc")), (snapshot) => {
+            const grid = document.getElementById('profileGrid');
+            grid.innerHTML = '';
+            snapshot.forEach(doc => {
+                const user = doc.data();
+                grid.innerHTML += `
+                    <div class="glass p-6 rounded-2xl border-l-4 border-indigo-500 hover:scale-[1.02] transition">
+                        <span class="text-[10px] uppercase tracking-widest text-indigo-400 font-bold">${user.tag}</span>
+                        <h3 class="text-xl font-bold mt-1">${user.name}</h3>
+                        <p class="text-slate-400 text-sm mt-3 mb-6 line-clamp-3">${user.bio}</p>
+                        <button onclick="openApply('${doc.id}', '${user.name}')" class="text-sm font-semibold flex items-center gap-2 text-indigo-400 hover:text-white transition">
+                            Apply <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            lucide.createIcons();
+        });
+
+        // --- Logic: Friend Application ---
+        window.openApply = async (targetId, targetName) => {
+            const sender = prompt("Your Name:");
+            const msg = prompt("Your Message to " + targetName + ":");
+            if(sender && msg) {
+                await addDoc(collection(db, "apps"), {
+                    sender, targetName, msg, timestamp: serverTimestamp()
+                });
+                alert('Request sent to the Nexus!');
+            }
+        };
+
+        // --- Logic: Admin Inbox ---
+        onSnapshot(query(collection(db, "apps"), orderBy("timestamp", "desc")), (snapshot) => {
+            const panel = document.getElementById('adminPanel');
+            panel.innerHTML = '';
+            snapshot.forEach(doc => {
+                const app = doc.data();
+                panel.innerHTML += `
+                    <div class="glass p-5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center font-bold">${app.sender[0]}</div>
+                            <div>
+                                <p class="font-bold">${app.sender} <span class="text-slate-500 font-normal">wants to be friends with</span> ${app.targetName}</p>
+                                <p class="text-slate-400 text-sm italic">"${app.msg}"</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
             });
         });
-    }
 
-    // Prevent form resubmit on refresh
-    if ( window.history.replaceState ) {
-        window.history.replaceState( null, null, window.location.href );
-    }
-</script>
+        lucide.createIcons();
+    </script>
 </body>
 </html>
