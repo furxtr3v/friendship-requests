@@ -3,165 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus | Premium Social</title>
+    <title>Nexus // Elite Social</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #0f172a; color: white; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
-        .gradient-text { background: linear-gradient(90deg, #818cf8, #e879f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .custom-scroll::-webkit-scrollbar { width: 5px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=edge');
+        
+        :root {
+            --accent: #8b5cf6;
+            --bg: #050505;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: #ffffff !important; /* Forces text to be white */
+            font-family: 'Space Grotesk', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-4px);
+        }
+
+        .glow-button {
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Prevent black text issues */
+        input, textarea {
+            background: rgba(255, 255, 255, 0.05) !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.5s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
-<body class="min-h-screen custom-scroll">
+<body class="p-4 md:p-8">
 
-    <nav class="sticky top-0 z-50 glass px-6 py-4 mb-8">
-        <div class="max-w-6xl mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-extrabold tracking-tight">NEXUS<span class="text-indigo-500">.</span></h1>
-            <div class="flex gap-6 items-center">
-                <button onclick="showView('profiles')" class="hover:text-indigo-400 transition">Explore</button>
-                <button onclick="showView('join')" class="hover:text-indigo-400 transition">Create</button>
-                <button onclick="showView('admin')" class="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition">
-                    <i data-lucide="shield" class="w-5 h-5 text-indigo-400"></i>
+    <div class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-900/20 blur-[120px] rounded-full -z-10"></div>
+    <div class="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900/20 blur-[120px] rounded-full -z-10"></div>
+
+    <div class="max-w-5xl mx-auto">
+        <nav class="flex justify-between items-center mb-12 px-4">
+            <div class="text-2xl font-bold tracking-tighter italic">NEXUS<span class="text-purple-500">_</span></div>
+            <div class="flex gap-4 bg-white/5 p-1 rounded-2xl border border-white/10">
+                <button onclick="nav('explore')" class="px-4 py-2 rounded-xl hover:bg-white/5 transition text-sm">Explore</button>
+                <button onclick="nav('join')" class="px-4 py-2 rounded-xl hover:bg-white/5 transition text-sm">Create</button>
+                <button onclick="nav('admin')" class="px-3 py-2 rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/30">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i>
                 </button>
             </div>
-        </div>
-    </nav>
+        </nav>
 
-    <main class="max-w-6xl mx-auto px-6 pb-20">
-        
-        <section id="view-profiles">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                <h2 class="text-4xl font-bold">Discover <span class="gradient-text">Friends</span></h2>
-                <div class="relative w-full md:w-72">
-                    <i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-slate-400"></i>
-                    <input type="text" id="searchInput" placeholder="Search profiles..." class="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
-                </div>
-            </div>
-            <div id="profileGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                </div>
-        </section>
-
-        <section id="view-join" class="hidden max-w-xl mx-auto">
-            <div class="glass p-8 rounded-3xl">
-                <h2 class="text-3xl font-bold mb-2">Join the Nexus</h2>
-                <p class="text-slate-400 mb-6">Set up your profile to start receiving friend requests.</p>
-                <form id="joinForm" class="space-y-4">
-                    <input type="text" id="reg-name" placeholder="Full Name" class="w-full bg-slate-800 border-none rounded-xl p-4 focus:ring-2 focus:ring-indigo-500" required>
-                    <input type="text" id="reg-tag" placeholder="Your Hobby (e.g. UI Designer)" class="w-full bg-slate-800 border-none rounded-xl p-4 focus:ring-2 focus:ring-indigo-500">
-                    <textarea id="reg-bio" placeholder="Tell us about yourself..." class="w-full bg-slate-800 border-none rounded-xl p-4 h-32 focus:ring-2 focus:ring-indigo-500"></textarea>
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-indigo-500/20">Publish Profile</button>
-                </form>
-            </div>
-        </section>
-
-        <section id="view-admin" class="hidden">
-            <div class="flex justify-between items-end mb-8">
+        <section id="view-explore" class="view-section active">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                 <div>
-                    <h2 class="text-4xl font-bold">Inbox</h2>
-                    <p class="text-slate-400">Manage incoming friend applications</p>
+                    <h2 class="text-5xl font-bold tracking-tight mb-2 text-white">Find your <span class="text-purple-500 underline decoration-purple-500/30">Circle.</span></h2>
+                    <p class="text-slate-400">Discover elite profiles and send requests.</p>
                 </div>
-                <button onclick="clearApps()" class="text-xs text-red-400 hover:underline">Clear History</button>
+                <input type="text" id="search" placeholder="Search talents..." class="w-full md:w-64 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-purple-500/50">
             </div>
-            <div id="adminPanel" class="space-y-4">
+            
+            <div id="profiles-container" class="grid grid-cols-1 md:grid-cols-3 gap-6 text-white">
                 </div>
         </section>
 
-    </main>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        // 1. YOUR FIREBASE CONFIG GOES HERE
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // --- View Controller ---
-        window.showView = (viewName) => {
-            ['profiles', 'join', 'admin'].forEach(v => {
-                document.getElementById(`view-${v}`).classList.add('hidden');
-            });
-            document.getElementById(`view-${viewName}`).classList.remove('hidden');
-            lucide.createIcons();
-        };
-
-        // --- Logic: Create Profile ---
-        document.getElementById('joinForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await addDoc(collection(db, "users"), {
-                name: document.getElementById('reg-name').value,
-                tag: document.getElementById('reg-tag').value,
-                bio: document.getElementById('reg-bio').value,
-                timestamp: serverTimestamp()
-            });
-            alert('Profile Live!');
-            showView('profiles');
-        });
-
-        // --- Logic: Real-time Profile Sync ---
-        onSnapshot(query(collection(db, "users"), orderBy("timestamp", "desc")), (snapshot) => {
-            const grid = document.getElementById('profileGrid');
-            grid.innerHTML = '';
-            snapshot.forEach(doc => {
-                const user = doc.data();
-                grid.innerHTML += `
-                    <div class="glass p-6 rounded-2xl border-l-4 border-indigo-500 hover:scale-[1.02] transition">
-                        <span class="text-[10px] uppercase tracking-widest text-indigo-400 font-bold">${user.tag}</span>
-                        <h3 class="text-xl font-bold mt-1">${user.name}</h3>
-                        <p class="text-slate-400 text-sm mt-3 mb-6 line-clamp-3">${user.bio}</p>
-                        <button onclick="openApply('${doc.id}', '${user.name}')" class="text-sm font-semibold flex items-center gap-2 text-indigo-400 hover:text-white transition">
-                            Apply <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                        </button>
+        <section id="view-join" class="view-section">
+            <div class="max-w-md mx-auto glass-card p-8 rounded-3xl text-white">
+                <h2 class="text-3xl font-bold mb-6">Setup Profile</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs uppercase text-slate-500 font-bold ml-1">Full Name</label>
+                        <input type="text" id="p-name" class="w-full rounded-xl p-3 mt-1">
                     </div>
-                `;
-            });
-            lucide.createIcons();
-        });
+                    <div>
+                        <label class="text-xs uppercase text-slate-500 font-bold ml-1">Specialty</label>
+                        <input type="text" id="p-tag" placeholder="e.g. 3D Artist" class="w-full rounded-xl p-3 mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase text-slate-500 font-bold ml-1">Bio</label>
+                        <textarea id="p-bio" rows="4" class="w-full rounded-xl p-3 mt-1"></textarea>
+                    </div>
+                    <button onclick="createProfile()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-2xl glow-button transition">Deploy to Nexus</button>
+                </div>
+            </div>
+        </section>
 
-        // --- Logic: Friend Application ---
-        window.openApply = async (targetId, targetName) => {
-            const sender = prompt("Your Name:");
-            const msg = prompt("Your Message to " + targetName + ":");
+        <section id="view-admin" class="view-section">
+            <div class="flex items-center gap-4 mb-8">
+                <h2 class="text-4xl font-bold text-white">Submissions</h2>
+                <span id="req-count" class="bg-purple-600 text-[10px] px-2 py-1 rounded-full text-white">0</span>
+            </div>
+            <div id="admin-container" class="space-y-3">
+                </div>
+        </section>
+    </div>
+
+    <script>
+        // --- DATA ENGINE ---
+        // (Uses LocalStorage if Firebase isn't set up yet)
+        let profiles = JSON.parse(localStorage.getItem('n_profiles')) || [
+            {id: 1, name: "Sample User", tag: "Designer", bio: "This is what your profile will look like!"}
+        ];
+        let requests = JSON.parse(localStorage.getItem('n_requests')) || [];
+
+        function nav(id) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById('view-' + id).classList.add('active');
+            render();
+        }
+
+        function createProfile() {
+            const name = document.getElementById('p-name').value;
+            const tag = document.getElementById('p-tag').value;
+            const bio = document.getElementById('p-bio').value;
+
+            if(!name) return alert("Name required");
+
+            profiles.push({ id: Date.now(), name, tag, bio });
+            localStorage.setItem('n_profiles', JSON.stringify(profiles));
+            nav('explore');
+            document.getElementById('p-name').value = ''; 
+        }
+
+        function sendRequest(targetName) {
+            const sender = prompt("Enter your name to apply:");
+            const msg = prompt("Message for " + targetName + ":");
             if(sender && msg) {
-                await addDoc(collection(db, "apps"), {
-                    sender, targetName, msg, timestamp: serverTimestamp()
-                });
-                alert('Request sent to the Nexus!');
+                requests.push({ sender, targetName, msg, date: new Date().toLocaleTimeString() });
+                localStorage.setItem('n_requests', JSON.stringify(requests));
+                alert("Application sent!");
+                render();
             }
-        };
+        }
 
-        // --- Logic: Admin Inbox ---
-        onSnapshot(query(collection(db, "apps"), orderBy("timestamp", "desc")), (snapshot) => {
-            const panel = document.getElementById('adminPanel');
-            panel.innerHTML = '';
-            snapshot.forEach(doc => {
-                const app = doc.data();
-                panel.innerHTML += `
-                    <div class="glass p-5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center font-bold">${app.sender[0]}</div>
-                            <div>
-                                <p class="font-bold">${app.sender} <span class="text-slate-500 font-normal">wants to be friends with</span> ${app.targetName}</p>
-                                <p class="text-slate-400 text-sm italic">"${app.msg}"</p>
-                            </div>
+        function render() {
+            // Render Profiles
+            const pContainer = document.getElementById('profiles-container');
+            pContainer.innerHTML = profiles.map(u => `
+                <div class="glass-card p-6 rounded-3xl relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500"></div>
+                    <span class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">${u.tag}</span>
+                    <h3 class="text-xl font-bold mt-1 text-white">${u.name}</h3>
+                    <p class="text-slate-400 text-sm mt-3 mb-6">${u.bio}</p>
+                    <button onclick="sendRequest('${u.name}')" class="w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold border border-white/5 transition text-white">
+                        Send Request
+                    </button>
+                </div>
+            `).join('');
+
+            // Render Admin
+            const aContainer = document.getElementById('admin-container');
+            document.getElementById('req-count').innerText = requests.length;
+            if(requests.length === 0) aContainer.innerHTML = `<p class="text-slate-500">No applications found.</p>`;
+            else {
+                aContainer.innerHTML = requests.map(r => `
+                    <div class="glass-card p-4 rounded-2xl flex justify-between items-center border-l-4 border-l-purple-500 text-white">
+                        <div>
+                            <p class="font-bold">${r.sender} <span class="text-slate-500 font-normal">→</span> ${r.targetName}</p>
+                            <p class="text-slate-400 text-xs italic mt-1">"${r.msg}"</p>
                         </div>
+                        <span class="text-[10px] text-slate-600">${r.date}</span>
                     </div>
-                `;
-            });
-        });
+                `).reverse().join('');
+            }
+            lucide.createIcons();
+        }
 
+        // Initialize
+        render();
         lucide.createIcons();
     </script>
 </body>
